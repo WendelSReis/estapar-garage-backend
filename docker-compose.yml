@@ -1,0 +1,31 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: estapar-mysql
+    environment:
+      MYSQL_DATABASE: garage_db
+      MYSQL_USER: garage
+      MYSQL_PASSWORD: garage
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: estapar-garage-app
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      SERVER_PORT: 3003
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/garage_db?createDatabaseIfNotExist=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: garage
+      SPRING_DATASOURCE_PASSWORD: garage
+      SIMULATOR_BASE_URL: http://host.docker.internal:3000
+    ports:
+      - "3003:3003"
