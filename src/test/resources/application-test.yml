@@ -1,11 +1,22 @@
 spring:
   datasource:
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    url: jdbc:mysql://localhost:3306/garage_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: garage
+    password: garage
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
   flyway:
     enabled: true
+    baseline-on-migrate: true
 
 simulator:
   enabled: false
+  base-url: http://localhost:3000

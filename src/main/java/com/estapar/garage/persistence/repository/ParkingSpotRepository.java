@@ -3,12 +3,14 @@ package com.estapar.garage.persistence.repository;
 import com.estapar.garage.domain.enums.SpotStatus;
 import com.estapar.garage.persistence.entity.ParkingSpotEntity;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 public interface ParkingSpotRepository extends JpaRepository<ParkingSpotEntity, Long> {
@@ -22,4 +24,12 @@ public interface ParkingSpotRepository extends JpaRepository<ParkingSpotEntity, 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from ParkingSpotEntity p where p.id = :id")
     Optional<ParkingSpotEntity> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from ParkingSpotEntity p where p.status = :status order by p.sector.sectorCode asc, p.id asc")
+    List<ParkingSpotEntity> findByStatusForUpdate(@Param("status") SpotStatus status, Pageable pageable);
+
+    default Optional<ParkingSpotEntity> findFirstFreeSpotForUpdate() {
+        return findByStatusForUpdate(SpotStatus.FREE, Pageable.ofSize(1)).stream().findFirst();
+    }
 }

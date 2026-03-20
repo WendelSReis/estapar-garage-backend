@@ -47,7 +47,21 @@ class ParkingPricingServiceTest {
         );
 
         assertThat(result.hourlyRate()).isEqualByComparingTo("11.00");
+        assertThat(result.chargedHours()).isEqualTo(1);
+        assertThat(result.amount()).isEqualByComparingTo("11.00");
+    }
+
+    @Test
+    void shouldChargeTwoHoursWhenStayExceedsNinetyMinutes() {
+        PricingResult result = service.calculate(
+                new BigDecimal("10.00"),
+                new BigDecimal("0.90"),
+                Instant.parse("2025-01-01T10:00:00Z"),
+                Instant.parse("2025-01-01T11:31:00Z")
+        );
+
+        assertThat(result.hourlyRate()).isEqualByComparingTo("9.00");
         assertThat(result.chargedHours()).isEqualTo(2);
-        assertThat(result.amount()).isEqualByComparingTo("22.00");
+        assertThat(result.amount()).isEqualByComparingTo("18.00");
     }
 }

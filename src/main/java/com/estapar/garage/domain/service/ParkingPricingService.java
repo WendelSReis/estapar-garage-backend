@@ -46,7 +46,8 @@ public class ParkingPricingService {
             return new PricingResult(multiplier, hourlyRate, 0, BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
         }
 
-        int chargedHours = (int) Math.ceil(totalMinutes / 60.0);
+        long chargeableMinutes = totalMinutes - 30;
+        int chargedHours = (int) Math.ceil(chargeableMinutes / 60.0);
         BigDecimal amount = hourlyRate.multiply(BigDecimal.valueOf(chargedHours)).setScale(2, RoundingMode.HALF_UP);
         return new PricingResult(multiplier, hourlyRate, chargedHours, amount);
     }
