@@ -4,10 +4,13 @@ server:
 spring:
   application:
     name: garage-backend
+
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/garage_db?createDatabaseIfNotExist=true&serverTimezone=UTC}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/garage_db?createDatabaseIfNotExist=true&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:garage}
     password: ${SPRING_DATASOURCE_PASSWORD:garage}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   jpa:
     open-in-view: false
     hibernate:
@@ -15,8 +18,10 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
   flyway:
     enabled: true
+    baseline-on-migrate: true
 
 simulator:
   enabled: ${SIMULATOR_ENABLED:true}
