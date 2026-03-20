@@ -267,7 +267,7 @@ Content-Type: application/json
 }
 ```
 
-Exemplo do enunciado: fileciteturn9file1
+Exemplo do enunciado:
 
 ### 3. Webhook - EXIT
 

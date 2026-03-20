@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -56,15 +57,34 @@ public class WebhookProcessingService {
                     throw new BusinessException("Veículo já possui sessão ativa");
                 });
 
-        if (parkingSpotRepository.countByStatus(SpotStatus.FREE) == 0) {
-            throw new BusinessException("Garagem lotada. Nenhuma nova entrada é permitida");
+        ParkingSpotEntity reservedSpot = parkingSpotRepository.findFirstFreeSpotForUpdate()
+                .orElseThrow(() -> new BusinessException("Garagem lotada. Nenhuma nova entrada é permitida"));
+
+        SectorEntity sector = sectorRepository.findBySectorCodeForUpdate(reservedSpot.getSector().getSectorCode())
+                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado"));
+
+        long occupiedBeforeEntry = parkingSpotRepository.countBySector_SectorCodeAndStatus(sector.getSectorCode(), SpotStatus.OCCUPIED);
+        if (occupiedBeforeEntry >= sector.getMaxCapacity()) {
+            throw new BusinessException("Setor lotado. Entrada não permitida até uma saída liberar vaga");
         }
+
+        BigDecimal multiplier = parkingPricingService.resolveMultiplier(occupiedBeforeEntry, sector.getMaxCapacity());
+        BigDecimal hourlyRate = sector.getBasePrice()
+                .multiply(multiplier)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        reservedSpot.setStatus(SpotStatus.OCCUPIED);
+        parkingSpotRepository.save(reservedSpot);
 
         ParkingSessionEntity session = new ParkingSessionEntity();
         session.setId(UUID.randomUUID());
         session.setLicensePlate(request.license_plate());
         session.setEntryTime(request.entry_time());
+        session.setSpot(reservedSpot);
+        session.setSector(sector);
         session.setStatus(ParkingSessionStatus.ENTERED);
+        session.setPriceMultiplier(multiplier);
+        session.setHourlyRate(hourlyRate);
         parkingSessionRepository.save(session);
 
         return "ENTRY processado";
@@ -82,35 +102,29 @@ public class WebhookProcessingService {
             return "PARKED ignorado. Veículo já estacionado";
         }
 
-        ParkingSpotEntity unlockedSpot = parkingSpotRepository.findByLatAndLng(request.lat(), request.lng())
-                .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada para coordenadas informadas"));
-        ParkingSpotEntity spot = parkingSpotRepository.findByIdForUpdate(unlockedSpot.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Vaga não encontrada para atualização"));
-
-        if (spot.getStatus() == SpotStatus.OCCUPIED) {
-            throw new BusinessException("Vaga já está ocupada");
+        ParkingSpotEntity reservedSpot = session.getSpot();
+        if (reservedSpot == null) {
+            throw new BusinessException("Sessão sem vaga reservada");
         }
 
-        SectorEntity sector = sectorRepository.findBySectorCodeForUpdate(spot.getSector().getSectorCode())
-                .orElseThrow(() -> new ResourceNotFoundException("Setor não encontrado"));
+        ParkingSpotEntity lockedReservedSpot = parkingSpotRepository.findByIdForUpdate(reservedSpot.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Vaga reservada não encontrada"));
 
-        long occupiedBeforeEntry = parkingSpotRepository.countBySector_SectorCodeAndStatus(sector.getSectorCode(), SpotStatus.OCCUPIED);
-        if (occupiedBeforeEntry >= sector.getMaxCapacity()) {
-            throw new BusinessException("Setor lotado. Entrada não permitida até uma saída liberar vaga");
+        boolean sameLatitude = lockedReservedSpot.getLat().compareTo(request.lat()) == 0;
+        boolean sameLongitude = lockedReservedSpot.getLng().compareTo(request.lng()) == 0;
+
+        if (!sameLatitude || !sameLongitude) {
+            throw new BusinessException("Coordenadas do PARKED não correspondem à vaga reservada no ENTRY");
         }
 
-        BigDecimal multiplier = parkingPricingService.resolveMultiplier(occupiedBeforeEntry, sector.getMaxCapacity());
-        BigDecimal hourlyRate = sector.getBasePrice().multiply(multiplier).setScale(2, java.math.RoundingMode.HALF_UP);
+        if (lockedReservedSpot.getStatus() != SpotStatus.OCCUPIED) {
+            throw new BusinessException("Vaga reservada não está ocupada no momento do PARKED");
+        }
 
-        spot.setStatus(SpotStatus.OCCUPIED);
-        session.setSpot(spot);
-        session.setSector(sector);
+        session.setSpot(lockedReservedSpot);
+        session.setSector(lockedReservedSpot.getSector());
         session.setParkedAt(Instant.now());
         session.setStatus(ParkingSessionStatus.PARKED);
-        session.setPriceMultiplier(multiplier);
-        session.setHourlyRate(hourlyRate);
-
-        parkingSpotRepository.save(spot);
         parkingSessionRepository.save(session);
         return "PARKED processado";
     }
@@ -130,17 +144,12 @@ public class WebhookProcessingService {
             parkingSpotRepository.save(spot);
         }
 
-        PricingResult pricingResult;
-        if (session.getSector() == null || session.getPriceMultiplier() == null) {
-            pricingResult = new PricingResult(BigDecimal.ONE, BigDecimal.ZERO.setScale(2), 0, BigDecimal.ZERO.setScale(2));
-        } else {
-            pricingResult = parkingPricingService.calculate(
-                    session.getSector().getBasePrice(),
-                    session.getPriceMultiplier(),
-                    session.getEntryTime(),
-                    request.exit_time()
-            );
-        }
+        PricingResult pricingResult = parkingPricingService.calculate(
+                session.getSector().getBasePrice(),
+                session.getPriceMultiplier() == null ? BigDecimal.ONE : session.getPriceMultiplier(),
+                session.getEntryTime(),
+                request.exit_time()
+        );
 
         session.setExitTime(request.exit_time());
         session.setStatus(ParkingSessionStatus.EXITED);
