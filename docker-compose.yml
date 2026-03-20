@@ -9,6 +9,8 @@ services:
       MYSQL_ROOT_PASSWORD: root
     ports:
       - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
       interval: 10s
@@ -23,9 +25,12 @@ services:
         condition: service_healthy
     environment:
       SERVER_PORT: 3003
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/garage_db?createDatabaseIfNotExist=true&serverTimezone=UTC
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/garage_db?createDatabaseIfNotExist=true&serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: garage
       SPRING_DATASOURCE_PASSWORD: garage
       SIMULATOR_BASE_URL: http://host.docker.internal:3000
     ports:
       - "3003:3003"
+
+volumes:
+  mysql_data:
