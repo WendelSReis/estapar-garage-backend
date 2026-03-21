@@ -12,7 +12,7 @@ O serviço implementa:
 
 ## Premissas assumidas
 
-O desafio informa que o sistema deve buscar a configuração da garagem no simulador e aceitar eventos no webhook `http://localhost:3003/webhook`. Também pede o endpoint `GET /revenue` por data e setor. fileciteturn9file1
+O desafio informa que o sistema deve buscar a configuração da garagem no simulador e aceitar eventos no webhook `http://localhost:3003/webhook`. Também pede o endpoint `GET /revenue` por data e setor.
 
 Como o evento `ENTRY` não traz setor, a implementação adota a seguinte estratégia:
 - `ENTRY` cria a sessão ativa do veículo;
@@ -430,7 +430,7 @@ Baseado na ocupação do setor:
 - até 100% -> acréscimo de 25%
 
 ### Lotação
-- com 100% de lotação, o setor fecha para novas entradas até a saída de um veículo. fileciteturn9file1
+- com 100% de lotação, o setor fecha para novas entradas até a saída de um veículo.
 
 ## Melhorias futuras
 
