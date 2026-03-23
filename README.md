@@ -7,18 +7,19 @@ Projeto completo em **Java 21 + Spring Boot 3.x + MySQL 8 + Maven + Testcontaine
 O serviço implementa:
 - sincronização inicial da garagem via `GET /garage` no startup;
 - recebimento de eventos `ENTRY`, `PARKED` e `EXIT` em `POST /webhook`;
-- controle de vagas por setor;
+- controle de vagas por setor, com reserva imediata de vaga no `ENTRY`;
 - cálculo de preço com regra de 30 minutos grátis + preço dinâmico;
 - consulta de faturamento por data e setor em `GET /revenue`.
 
 ## Premissas assumidas
 
-O desafio informa que o sistema deve buscar a configuração da garagem no simulador e aceitar eventos no webhook `http://localhost:3003/webhook`. Também pede o endpoint `GET /revenue` por data e setor. fileciteturn9file1
+O desafio informa que o sistema deve buscar a configuração da garagem no simulador e aceitar eventos no webhook `http://localhost:3003/webhook`. Também pede o endpoint `GET /revenue` por data e setor.
 
-Como o evento `ENTRY` não traz setor, a implementação adota a seguinte estratégia:
-- `ENTRY` cria a sessão ativa do veículo;
-- `PARKED` identifica a vaga real por `lat/lng`, associa o setor e marca a vaga como ocupada;
-- `EXIT` calcula o valor, fecha a sessão e libera a vaga.
+Como o evento `ENTRY` não traz coordenadas, a implementação adota a seguinte estratégia alinhada ao enunciado:
+- `ENTRY` reserva e marca como ocupada a primeira vaga livre disponível, já vinculando o veículo ao setor da vaga reservada;
+- o multiplicador de preço dinâmico e a `hourlyRate` ficam congelados no `ENTRY`, com base na ocupação naquele momento;
+- `PARKED` apenas confirma a vaga reservada por `lat/lng`, validando se as coordenadas recebidas correspondem à vaga ocupada no `ENTRY`;
+- `EXIT` calcula o valor final, libera a vaga e encerra a sessão.
 
 ## Stack
 
@@ -321,10 +322,10 @@ http://localhost:3003/revenue?date=2025-01-01&sector=A
 
 Para o fluxo do desafio, execute nesta ordem:
 
-1. `POST /webhook` com `ENTRY`
-2. `POST /webhook` com `PARKED`
-3. `POST /webhook` com `EXIT`
-4. `GET /revenue?date=2025-01-01&sector=A`
+1. `POST /webhook` com `ENTRY` para reservar/ocupar a vaga e congelar o multiplicador dinâmico
+2. `POST /webhook` com `PARKED` para confirmar a vaga pelas coordenadas
+3. `POST /webhook` com `EXIT` para liberar a vaga e consolidar a cobrança
+4. `GET /revenue?date=2025-01-01&sector=A` para validar o faturamento do setor
 
 ## Coleção sugerida no Postman
 
@@ -431,7 +432,10 @@ Baseado na ocupação do setor:
 - até 100% -> acréscimo de 25%
 
 ### Lotação
-- com 100% de lotação, o setor fecha para novas entradas até a saída de um veículo. fileciteturn9file1
+- no `ENTRY`, a aplicação tenta reservar a primeira vaga livre disponível;
+- se um setor estiver cheio, ele é ignorado para novas reservas;
+- se toda a garagem estiver sem vagas livres, a entrada é bloqueada;
+- após o `EXIT`, a vaga volta para `FREE` e pode ser reservada novamente.
 
 ## Melhorias futuras
 
