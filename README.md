@@ -1,7 +1,6 @@
 # Estapar Backend Developer Test
 
-Projeto completo em **Java 21 + Spring Boot 3.x + MySQL 8 + Maven + Testcontainers + Docker**. Este README foi ajustado com os comandos reais usados para subir o banco, o simulador e executar os testes locais.
-
+Projeto completo em **Java 21 + Spring Boot 3.x + MySQL 8 + Maven + Testcontainers + Docker**. 
 ## Solução adotada
 
 O serviço implementa:
